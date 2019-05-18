@@ -5,10 +5,10 @@ import re
 import sys
 from six import text_type
 from io import open
-from docassemble.base.util import Person, DADict, path_and_mimetype, DARedis, DAList, Address, objects_from_file
+from docassemble.base.util import Organization, DADict, path_and_mimetype, DARedis, DAList, Address, objects_from_file
 from math import sin, cos, sqrt, atan2, radians
 
-__all__ = ['service_area_for', 'offices_for', 'cities_near', 'poverty_percentage']
+__all__ = ['lsc_program_for', 'offices_for', 'cities_near', 'poverty_percentage']
 
 base_url = "https://services3.arcgis.com/n7h3cEoHTyNCwjCf/ArcGIS/rest/services/BasicField_ServiceAreas2019/FeatureServer/0/query"
 base_params = {'where': 'OBJECTID>=0', 'objectIds': '', 'time': '', 'geometryType': 'esriGeometryPoint', 'inSR': '{"wkid": 4326}', 'spatialRel': 'esriSpatialRelWithin', 'resultType': 'none', 'distance': '0.0', 'units': 'esriSRUnit_Meter', 'returnGeodetic': 'false', 'outFields': '*', 'returnGeometry': 'false', 'returnCentroid': 'false', 'multipatchOption': 'xyFootprint', 'maxAllowableOffset': '', 'geometryPrecision': '', 'outSR': '{"wkid": 4326}', 'datumTransformation': '', 'applyVCSProjection': 'false', 'returnIdsOnly': 'false', 'returnUniqueIdsOnly': 'false', 'returnCountOnly': 'false', 'returnExtentOnly': 'false', 'returnQueryGeometry': 'false', 'returnDistinctValues': 'false', 'orderByFields': '', 'groupByFieldsForStatistics': '', 'outStatistics': '', 'having': '', 'resultOffset': '', 'resultRecordCount': '', 'returnZ': 'false', 'returnM': 'false', 'returnExceededLimitFeatures': 'true', 'quantizationParameters': '', 'sqlFormat': 'none', 'f': 'pjson', 'token': ''}
@@ -88,7 +88,7 @@ def load_program_data():
             else:
                 sys.stderr.write("Could not find {} in program info.\n".format(service_area))
 
-def offices_for(org):
+def offices_for(org, by_proximity_to=None):
     if org is None:
         return None
     params = copy.copy(office_base_params)
@@ -111,7 +111,15 @@ def offices_for(org):
         office.office_type = attribs['officetype'].strip()
         if attribs['bldgSuite']:
             office.unit = attribs['bldgSuite'].strip()
+        if by_proximity_to:
+            office.distance = distance_between(by_proximity_to.address, office)
     offices.gathered = True
+    if by_proximity_to:
+        by_proximity_to.address.geolocate()
+        if not by_proximity_to.address.geolocate_success:
+            raise Exception('offices_for: failure to geolocate address')
+        offices.elements = sorted(offices.elements, key=lambda y: y.distance)
+        offices._reset_instance_names()
     return offices
 
 def distance_between(addr1, addr2):
@@ -139,30 +147,30 @@ def cities_near(org, person):
     cities.gathered = True
     return cities
 
-def service_area_for(person):
+def lsc_program_for(person):
     person.address.geolocate()
     if not person.address.geolocate_success:
-        raise Exception('service_area_for: failure to geolocate address')
+        raise Exception('lsc_program_for: failure to geolocate address')
     params = copy.copy(base_params)
     params['geometry'] = "{},{}".format(person.address.location.longitude, person.address.location.latitude)
     r = requests.get(base_url, params=params)
     if r.status_code != 200:
-        raise Exception('service_area_for: got error code {} from ArcGIS.  Response: {}'.format(r.status_code, r.text))
+        raise Exception('lsc_program_for: got error code {} from ArcGIS.  Response: {}'.format(r.status_code, r.text))
     result = r.json()
     if not isinstance(result, dict) or 'features' not in result or not isinstance(result['features'], list):
-        raise Exception('service_area_for: unexpected response from server')
+        raise Exception('lsc_program_for: unexpected response from server')
     if len(result['features']) == 0:
         return None
     if 'attributes' not in result['features'][0] or not isinstance(result['features'][0]['attributes'], dict) or '':
-        raise Exception('service_area_for: unexpected response from server')
+        raise Exception('lsc_program_for: unexpected response from server')
     attribs = result['features'][0]['attributes']
     if 'Grantee' not in attribs or 'ServArea' not in attribs:
-        raise Exception('service_area_for: missing information in response')
+        raise Exception('lsc_program_for: missing information in response')
     service_area = attribs['ServArea'].strip()
     if service_area not in lsc_programs_by_serv_a:
-        raise Exception('service_area_for: service area {} not found'.format(service_area))
+        raise Exception('lsc_program_for: service area {} not found'.format(service_area))
     program = lsc_programs_by_serv_a[service_area]
-    result = Person()
+    result = Organization()
     result.set_random_instance_name()
     result.name.text = program['name']
     result.phone_number = program['phone_number']
