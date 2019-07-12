@@ -42,7 +42,7 @@ def service_areas():
     redis = DARedis()
     result = redis.get('lsc_service_areas')
     if result is None:
-        sys.stderr.write('service_areas: calling arcgis.\n')
+        #sys.stderr.write('service_areas: calling arcgis.\n')
         r = requests.get('https://services3.arcgis.com/n7h3cEoHTyNCwjCf/ArcGIS/rest/services/BasicFieldServiceAreas_GrantCycle/FeatureServer/0/query?where=OBJECTID%3E%3D0&objectIds=&time=&geometry=&geometryType=esriGeometryEnvelope&inSR=&spatialRel=esriSpatialRelIntersects&resultType=none&distance=0.0&units=esriSRUnit_Meter&returnGeodetic=false&outFields=*&returnGeometry=false&returnCentroid=false&multipatchOption=xyFootprint&maxAllowableOffset=&geometryPrecision=&outSR=&datumTransformation=&applyVCSProjection=false&returnIdsOnly=false&returnUniqueIdsOnly=false&returnCountOnly=false&returnExtentOnly=false&returnQueryGeometry=false&returnDistinctValues=false&orderByFields=&groupByFieldsForStatistics=&outStatistics=&having=&resultOffset=&resultRecordCount=&returnZ=false&returnM=false&returnExceededLimitFeatures=true&quantizationParameters=&sqlFormat=none&f=pjson&token=')
         if r.status_code != 200:
             redis.set('lsc_service_areas', '{}')
