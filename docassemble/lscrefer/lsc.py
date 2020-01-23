@@ -79,8 +79,10 @@ def load_program_data():
     else:
         for item in area_data['features']:
             attribs = item['attributes']
-            if not attribs.get('ServArea_1', None):
-                continue
+            if attribs['ServArea'] == 'MA-4':
+                attribs['ServArea'] = 'MA04'
+                attribs['ServArea_1'] = 'MA-4'
+                attribs['servA'] = 'MA04'
             service_area = attribs['ServArea_1'].strip()
             if service_area in lsc_programs:
                 lsc_programs_by_rin[attribs['RIN']] = lsc_programs[service_area]
