@@ -43,7 +43,7 @@ def find_package_data(where='.', package='', exclude=standard_exclude, exclude_d
     return out
 
 setup(name='docassemble.lscrefer',
-      version='0.0.4',
+      version='0.0.5',
       description=('A module to assist with referring users to LSC programs.'),
       long_description='A module to assist with referring users to LSC programs.',
       long_description_content_type='text/markdown',
