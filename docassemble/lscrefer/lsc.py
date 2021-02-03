@@ -23,6 +23,7 @@ lsc_programs_by_serv_a = dict()
 poverty = objects_from_file("docassemble.lscrefer:data/sources/poverty.yml")
 
 def poverty_percentage(household_income, household_size, state):
+    #sys.stderr.write("poverty_percentage start\n")
     try:
         household_size = int(household_size)
         assert household_size > 0
@@ -36,9 +37,11 @@ def poverty_percentage(household_income, household_size, state):
         index_num = 0
     if household_size < 9:
         return 100.0 * household_income/(0.5*poverty['level'][household_size][index_num])
+    #sys.stderr.write("poverty_percentage end\n")
     return 100.0 * household_income/(0.5*(poverty['level'][8][index_num] + poverty['level']['extra'][index_num] * (household_size - 8)))
 
 def service_areas():
+    #sys.stderr.write("service_areas start\n")
     redis = DARedis()
     result = redis.get('lsc_service_areas')
     if result is None:
@@ -58,9 +61,11 @@ def service_areas():
                 sys.stderr.write('load_service_areas: got invalid response from server: {}\n'.format(text_type(the_err)))
         redis.expire('lsc_service_areas', 60*60*24*7)
         result = redis.get('lsc_service_areas')
+    #sys.stderr.write("service_areas end\n")
     return json.loads(result.decode())
 
 def load_program_data():
+    #sys.stderr.write("load_program_data start\n")
     (path, mimetype) = path_and_mimetype('docassemble.lscrefer:data/sources/Programs.json')
     with open(path, 'rU', encoding='utf-8') as fp:
         program_list = json.load(fp)
@@ -91,14 +96,18 @@ def load_program_data():
                 lsc_programs[service_area]['serv_a'] = attribs['servA']
             else:
                 sys.stderr.write("Could not find {} in program info.\n".format(service_area))
+    #sys.stderr.write("load_program_data end\n")
 
 def offices_for(org, by_proximity_to=None):
+    #sys.stderr.write("offices_for start\n")
     if org is None:
+        #sys.stderr.write("offices_for end None\n")
         return None
     params = copy.copy(office_base_params)
     params['where'] = "recipID={}".format(org.rin)
     r = requests.get(office_base_url, params=params)
     if r.status_code != 200:
+        #sys.stderr.write("offices_for end exception\n")
         raise Exception('offices_for: got error code {} from ArcGIS.  Response: {}'.format(r.status_code, r.text))
     result = r.json()
     offices = DAList(object_type=Address)
@@ -124,9 +133,11 @@ def offices_for(org, by_proximity_to=None):
             raise Exception('offices_for: failure to geolocate address')
         offices.elements = sorted(offices.elements, key=lambda y: y.distance)
         offices._reset_instance_names()
+    #sys.stderr.write("offices_for end\n")
     return offices
 
 def distance_between(addr1, addr2):
+    #sys.stderr.write("distance_between start\n")
     R = 3958.8
     lat1 = radians(addr1.location.latitude)
     lon1 = radians(addr1.location.longitude)
@@ -136,9 +147,11 @@ def distance_between(addr1, addr2):
     dlat = lat2 - lat1
     a = sin(dlat / 2)**2 + cos(lat1) * cos(lat2) * sin(dlon / 2)**2
     c = 2 * atan2(sqrt(a), sqrt(1 - a))
+    #sys.stderr.write("distance_between end\n")
     return R * c
 
 def cities_near(org, person):
+    #sys.stderr.write("cities_near start\n")
     offices = offices_for(org)
     person.address.geolocate()
     if not person.address.geolocate_success:
@@ -149,15 +162,21 @@ def cities_near(org, person):
         if y.city not in cities:
             cities.append(y.city)
     cities.gathered = True
+    #sys.stderr.write("cities_near end\n")
     return cities
 
 def lsc_program_for(person):
+    #sys.stderr.write("lsc_program_for start\n")
+    #sys.stderr.write("doing geolocate\n")
     person.address.geolocate()
+    #sys.stderr.write("did geolocate\n")
     if not person.address.geolocate_success:
         raise Exception('lsc_program_for: failure to geolocate address')
     params = copy.copy(base_params)
     params['geometry'] = "{},{}".format(person.address.location.longitude, person.address.location.latitude)
-    r = requests.get(base_url, params=params)
+    #sys.stderr.write("calling %s base_url with %s\n" % (base_url, repr(params)))
+    r = requests.get(base_url, params=params, timeout=10)
+    #sys.stderr.write("ok done\n")
     if r.status_code != 200:
         raise Exception('lsc_program_for: got error code {} from ArcGIS.  Response: {}'.format(r.status_code, r.text))
     result = r.json()
@@ -183,6 +202,7 @@ def lsc_program_for(person):
         result.rin = program['rin']
     if 'serv_a' in program:
         result.serv_a = program['rin']
+    #sys.stderr.write("lsc_program_for end\n")
     return result
 
 load_program_data()
